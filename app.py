@@ -60,7 +60,6 @@ if st.button('Get fare'):
 
         dist = distance((pu_location.latitude, pu_location.longitude),
                         (do_location.latitude, pu_location.longitude)).m
-        st.write(dist)
         st.map(df,zoom=12)
 
     elif pu_location is None and do_location is None :
