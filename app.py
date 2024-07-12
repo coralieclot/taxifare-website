@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import requests
 from geopy.geocoders import Nominatim
+from geopy.distance import distance
 import pandas as pd
 
 '''
@@ -56,7 +57,11 @@ if st.button('Get fare'):
         cost = result.json()['fare']
         st.write(f'**Estimated cost : ${round(cost,2)}**')
         df = pd.DataFrame([[pu_location.latitude,pu_location.longitude],[do_location.latitude,do_location.longitude]], columns=['lat','lon'])
-        st.map(df)
+
+        dist = distance((pu_location.latitude, pu_location.longitude),
+                        (do_location.latitude, pu_location.longitude)).m
+        st.write(dist)
+        st.map(df,zoom=12)
 
     elif pu_location is None and do_location is None :
         st.write("Invalid pick-up and drop-off addresses")
