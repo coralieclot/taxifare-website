@@ -1,7 +1,7 @@
 import streamlit as st
 import datetime
 import requests
-import pandas as pd
+
 
 '''
 # :statue_of_liberty: NYC Taxi
