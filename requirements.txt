@@ -1,4 +1,4 @@
 streamlit
 requests
-geopy.geocoders
+geopy
 pandas
