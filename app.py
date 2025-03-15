@@ -6,7 +6,7 @@ from geopy.distance import distance
 import pandas as pd
 from streamlit_folium import st_folium, folium_static
 import folium
-from utils import check_bounding_box
+
 
 def check_bounding_box(location):
     BB_LATITUDE = [40.5, 40.9]
