@@ -4,46 +4,86 @@ import requests
 from geopy.geocoders import Nominatim
 from geopy.distance import distance
 import pandas as pd
+from streamlit_folium import st_folium, folium_static
+import folium
+from utils import check_bounding_box
+
+def check_bounding_box(location):
+    BB_LATITUDE = [40.5, 40.9]
+    BB_LONGITUDE = [-74.3, -73.7]
+    """Checks if the location is within the bounding box (i.e. inside NYC)"""
+    if BB_LATITUDE[0] < location.latitude < BB_LATITUDE[1] \
+        and BB_LONGITUDE[0] < location.longitude < BB_LONGITUDE[1]:
+            return True
+
+    return False
 
 '''
 # :statue_of_liberty: NYC Taxi
 ### Estimate the cost of your taxi ride in NYC :taxi:
 
 '''
+pu_location = None
+do_location = None
 
-url = 'https://taxifare.lewagon.ai/predict'
+url = 'https://taxifare-pqttrr3oaq-ew.a.run.app/predict'
 
-columns = st.columns(2)
-columns[0].write('**:date: :clock1: Pickup date & time**')
-d = columns[1].date_input('Date', value=datetime.date(2014, 7, 6))
-t = columns[1].time_input('Time', value=datetime.time(19,18,00))
+#Initialize map
+m = folium.Map(location=[40.75,-73.975], zoom_start=11)
 
 
-columns = st.columns(2)
-columns[0].write('**:pushpin: Pick-up Address**')
-#pu_lat = columns[1].number_input('Latitude',value=-73.950655,format='%f', step=0.000001)
-#pu_lon = columns[1].number_input('Longitude',value=40.783282,format='%f',step=0.000001)
-pu_address = columns[1].text_input('Enter Address',value='Central Park',key=1)
+columns = st.columns(3)
+columns[0].write('**:date: :clock1: When do you want a cab?**')
+d = columns[0].date_input('Date', value=datetime.datetime.now())
+t = columns[0].time_input('Time', value=datetime.datetime.now())
 
-columns = st.columns(2)
-columns[0].write('**:pushpin: Drop-off Address**')
-#do_lat = columns[1].number_input('Latitude',value=-73.984365,format='%f',step=0.000001)
-#do_lon = columns[1].number_input('Longitude',value=40.769802, format='%f',step=0.000001)
-do_address = columns[1].text_input('Enter Address',value='Empire State Building',key=2)
+columns[1].write('**:pushpin: What\'s your journey ?**')
 
-columns = st.columns(2)
-columns[0].write('**:couple: Passengers**')
-passengers = columns[1].number_input('Number', value=1, min_value=1, max_value=5)
+pu_address = columns[1].text_input('Start',placeholder="Enter address", key=1)
+do_address = columns[1].text_input('Finish',placeholder="Enter address", key=2)
 
-if st.button('Get fare'):
-
+if pu_address != '':
     geolocator_pu = Nominatim(user_agent="pu")
-    geolocator_do = Nominatim(user_agent="do")
-
     pu_location = geolocator_pu.geocode(pu_address)
+
+    if pu_location is None:
+        columns[1].write(":red[*Invalid pick-up address*]")
+    elif check_bounding_box(pu_location):
+        start = folium.Marker(
+            [pu_location.latitude, pu_location.longitude],
+            tooltip=f'Pick-up address : {pu_address}',
+            icon=folium.map.Icon(color='green',icon='circle-dot',prefix='fa')
+        )
+        start.add_to(m)
+    else:
+        columns[1].write(":red[*Pick-up address out of bounds*]")
+
+if do_address != '':
+    #Convert address to geolocation
+    geolocator_do = Nominatim(user_agent="do")
     do_location = geolocator_do.geocode(do_address)
 
-    if pu_location is not None and do_location is not None :
+    #Create Marker if address is valid or show error message
+    if do_location is None:
+        columns[1].write(":red[*Invalid dropoff address*]")
+    elif check_bounding_box(do_location):
+        end = folium.Marker(
+            [do_location.latitude, do_location.longitude],
+            tooltip=f'Drop-off address : {do_address}',
+            icon=folium.map.Icon(color='red',icon='circle-dot',prefix='fa')
+        )
+        end.add_to(m)
+    else:
+        columns[1].write(":red[*Drop-off address out of bounds*]")
+
+if pu_location is not None and do_location is not None :
+    folium.PolyLine([[pu_location.latitude,pu_location.longitude],
+                     [do_location.latitude, do_location.longitude]]).add_to(m)
+
+columns[2].write('**:couple: How many passenger ?**')
+passengers = columns[2].number_input('Number', value=1, min_value=1, max_value=5)
+
+if pu_location is not None and do_location is not None :
         params = {
             "pickup_datetime":f'{d} {t}',
             "pickup_latitude":pu_location.latitude,
@@ -53,18 +93,13 @@ if st.button('Get fare'):
             'passenger_count':passengers
         }
 
-        result = requests.get(url,params)
+        with st.spinner(text="Calculation in progress..."):
+            result = requests.get(url,params)
         cost = result.json()['fare']
-        st.write(f'**Estimated cost : ${round(cost,2)}**')
-        df = pd.DataFrame([[pu_location.latitude,pu_location.longitude],[do_location.latitude,do_location.longitude]], columns=['lat','lon'])
+        st.markdown(f'#### Estimated cost : ${round(cost,2)}')
+else:
+    st.write(' ')
 
-        dist = distance((pu_location.latitude, pu_location.longitude),
-                        (do_location.latitude, pu_location.longitude)).m
-        st.map(df,zoom=12)
+st_data = folium_static(m)
 
-    elif pu_location is None and do_location is None :
-        st.write("Invalid pick-up and drop-off addresses")
-    elif pu_location is None :
-        st.write("Invalid pick-up address")
-    else :
-        st.write("Invalid drop-off address")
+st.write('Made with ❤️ by Coralie Clot')
